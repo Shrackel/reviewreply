@@ -234,7 +234,7 @@ textarea::placeholder { color: var(–ink-light); }
       <button class="modal-tab" onclick="switchTab('login')">Sign In</button>
     </div>
     <input class="modal-input" id="authEmail" type="email" placeholder="your@email.com" />
-    <input class="modal-input" id="authPassword" type="password" placeholder="Password (min 6 characters)" />
+    <div style="position:relative; margin-bottom:12px;"><input class="modal-input" id="authPassword" type="password" placeholder="Password (min 6 characters)" style="margin-bottom:0; padding-right:52px;" /><button type="button" id="toggleBtn" onclick="togglePassword()" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b6860; font-size:0.82rem; font-weight:600; font-family:DM Sans,sans-serif; padding:4px 2px;">Show</button></div>
     <button class="modal-submit" id="authSubmit" onclick="handleAuth()">Create Free Account</button>
     <div class="modal-error" id="authError"></div>
     <div class="modal-success" id="authSuccess"></div>
@@ -379,6 +379,13 @@ textarea::placeholder { color: var(–ink-light); }
   let userProfile = null;
   let selectedTone = 'professional';
   let authMode = 'signup';
+
+  function togglePassword() {
+    const input = document.getElementById('authPassword');
+    const btn = document.getElementById('toggleBtn');
+    if (input.type === 'password') { input.type = 'text'; btn.textContent = 'Hide'; btn.style.color = '#1f6feb'; }
+    else { input.type = 'password'; btn.textContent = 'Show'; btn.style.color = '#6b6860'; }
+  }
   let apiKey = localStorage.getItem('rr_api_key') || '';
 
   if (apiKey) document.getElementById('apiKeyInput').value = apiKey;
