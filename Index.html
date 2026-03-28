@@ -175,8 +175,8 @@ textarea::placeholder { color: var(–ink-light); }
 .api-key-row input { flex: 1; background: var(–bg); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 8px 12px; font-family: monospace; font-size: 0.8rem; color: var(–ink); outline: none; transition: border-color 0.2s; }
 .api-key-row input:focus { border-color: var(–accent); box-shadow: 0 0 0 3px rgba(31,111,235,0.1); }
 .api-key-row input::placeholder { color: var(–ink-light); }
-.save-key-btn { background: var(–ink); color: white; border: none; border-radius: var(–radius-sm); padding: 8px 16px; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: ‘DM Sans’, sans-serif; transition: background 0.15s; white-space: nowrap; }
-.save-key-btn:hover { background: #333; }
+.save-key-btn { background: #1a1917 !important; color: #ffffff !important; border: none !important; border-radius: var(–radius-sm); padding: 8px 16px; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: ‘DM Sans’, sans-serif; transition: background 0.15s; white-space: nowrap; -webkit-appearance: none !important; appearance: none !important; opacity: 1 !important; }
+.save-key-btn:hover { background: #333 !important; }
 
 /* GENERATE BTN */
 .generate-btn { width: 100%; background: var(–accent); color: white; border: none; border-radius: var(–radius-sm); padding: 13px 24px; font-family: ‘DM Sans’, sans-serif; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -404,13 +404,16 @@ textarea::placeholder { color: var(–ink-light); }
   });
 
   async function loadProfile() {
-    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-    if (error || !data) {
-      // Create profile if doesn't exist
-      await sb.from('profiles').insert({ id: currentUser.id, email: currentUser.email, reply_count: 0, plan: 'free' });
-      userProfile = { reply_count: 0, plan: 'free' };
-    } else {
-      userProfile = data;
+    try {
+      const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+      if (error || !data) {
+        await sb.from('profiles').insert({ id: currentUser.id, email: currentUser.email, reply_count: 0, plan: 'free' });
+        userProfile = { id: currentUser.id, reply_count: 0, plan: 'free' };
+      } else {
+        userProfile = data;
+      }
+    } catch(e) {
+      userProfile = { id: currentUser.id, reply_count: 0, plan: 'free' };
     }
     updateUsageUI();
   }
@@ -521,8 +524,10 @@ textarea::placeholder { color: var(–ink-light); }
       localStorage.setItem('rr_api_key', key);
       const btn = document.querySelector('.save-key-btn');
       btn.textContent = '✓ Saved';
-      btn.style.background = '#1a7f4b';
-      setTimeout(() => { btn.textContent = 'Save'; btn.style.background = ''; }, 2000);
+      btn.style.cssText = 'background:#1a7f4b !important; color:white !important; border:none; border-radius:8px; padding:8px 16px; font-size:0.8rem; font-weight:600; cursor:pointer; font-family:DM Sans,sans-serif; white-space:nowrap;';
+      setTimeout(() => { btn.textContent = 'Save'; btn.style.cssText = 'background:#1a1917 !important; color:white !important; border:none; border-radius:8px; padding:8px 16px; font-size:0.8rem; font-weight:600; cursor:pointer; font-family:DM Sans,sans-serif; white-space:nowrap;'; }, 2000);
+    } else {
+      alert('Please paste your API key first.');
     }
   }
 
@@ -616,7 +621,8 @@ Output format:
     } catch (err) {
       showError('Error: ' + (err.message || 'Something went wrong. Check your API key.'));
     } finally {
-      if (userProfile?.reply_count < FREE_LIMIT || userProfile?.plan !== 'free') {
+      const count = userProfile?.reply_count || 0;
+      if (count < FREE_LIMIT || userProfile?.plan !== 'free') {
         btn.disabled = false;
         document.getElementById('btnText').innerHTML = '✦ Generate 3 Replies';
       }
