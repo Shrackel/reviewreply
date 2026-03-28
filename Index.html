@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReviewReply — AI-Powered Review Responses</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --white: #ffffff;
+    --ink: #1a1917;
+    --ink-muted: #6b6860;
+    --ink-light: #a8a49e;
+    --accent: #1f6feb;
+    --accent-hover: #1558c9;
+    --accent-light: #eff4ff;
+    --border: #e4e2dd;
+    --border-strong: #c9c6bf;
+    --success: #1a7f4b;
+    --success-bg: #f0faf4;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+/* NAV */
+nav {
+background: var(–white);
+border-bottom: 1px solid var(–border);
+padding: 0 32px;
+height: 60px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+position: sticky;
+top: 0;
+z-index: 100;
+box-shadow: var(–shadow-sm);
+}
+.logo { font-family: ‘DM Serif Display’, serif; font-size: 1.35rem; color: var(–ink); }
+.logo span { color: var(–accent); }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.nav-user { font-size: 0.82rem; color: var(–ink-muted); }
+.nav-badge { background: var(–accent-light); color: var(–accent); font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+.nav-btn { background: none; border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 6px 14px; font-size: 0.8rem; font-weight: 600; color: var(–ink-muted); cursor: pointer; font-family: ‘DM Sans’, sans-serif; transition: all 0.15s; }
+.nav-btn:hover { border-color: var(–ink); color: var(–ink); }
+
+/* AUTH MODAL */
+.modal-overlay {
+position: fixed; inset: 0;
+background: rgba(0,0,0,0.4);
+backdrop-filter: blur(4px);
+z-index: 1000;
+display: flex; align-items: center; justify-content: center;
+padding: 24px;
+opacity: 0; pointer-events: none;
+transition: opacity 0.2s;
+}
+.modal-overlay.visible { opacity: 1; pointer-events: all; }
+.modal {
+background: var(–white);
+border-radius: 16px;
+padding: 36px 32px;
+width: 100%; max-width: 400px;
+box-shadow: var(–shadow-md);
+transform: translateY(12px);
+transition: transform 0.2s;
+}
+.modal-overlay.visible .modal { transform: translateY(0); }
+.modal-title { font-family: ‘DM Serif Display’, serif; font-size: 1.5rem; margin-bottom: 6px; }
+.modal-sub { color: var(–ink-muted); font-size: 0.88rem; margin-bottom: 24px; }
+.modal-tabs { display: flex; gap: 0; margin-bottom: 24px; border: 1px solid var(–border); border-radius: var(–radius-sm); overflow: hidden; }
+.modal-tab { flex: 1; padding: 9px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; background: none; font-family: ‘DM Sans’, sans-serif; color: var(–ink-muted); transition: all 0.15s; }
+.modal-tab.active { background: var(–accent); color: white; }
+.modal-input { width: 100%; background: var(–bg); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 10px 14px; color: var(–ink); font-family: ‘DM Sans’, sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s; margin-bottom: 12px; }
+.modal-input:focus { border-color: var(–accent); box-shadow: 0 0 0 3px rgba(31,111,235,0.1); }
+.modal-input::placeholder { color: var(–ink-light); }
+.modal-submit { width: 100%; background: var(–accent); color: white; border: none; border-radius: var(–radius-sm); padding: 12px; font-family: ‘DM Sans’, sans-serif; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
+.modal-submit:hover { background: var(–accent-hover); }
+.modal-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.modal-error { background: #fff5f5; border: 1px solid #fca5a5; border-radius: var(–radius-sm); padding: 10px 14px; font-size: 0.82rem; color: #dc2626; margin-top: 12px; display: none; }
+.modal-success { background: var(–success-bg); border: 1px solid #86efac; border-radius: var(–radius-sm); padding: 10px 14px; font-size: 0.82rem; color: var(–success); margin-top: 12px; display: none; }
+
+/* UPGRADE WALL */
+.upgrade-banner {
+background: linear-gradient(135deg, #1a1917 0%, #2d2520 100%);
+color: white;
+border-radius: var(–radius);
+padding: 28px;
+margin-bottom: 24px;
+display: none;
+align-items: center;
+justify-content: space-between;
+gap: 20px;
+flex-wrap: wrap;
+}
+.upgrade-banner.visible { display: flex; }
+.upgrade-text h3 { font-family: ‘DM Serif Display’, serif; font-size: 1.2rem; margin-bottom: 4px; }
+.upgrade-text p { font-size: 0.85rem; color: rgba(255,255,255,0.6); }
+.upgrade-btn { background: var(–gold, #f0c96e); color: #1a1917; border: none; border-radius: var(–radius-sm); padding: 11px 24px; font-weight: 700; font-size: 0.88rem; cursor: pointer; font-family: ‘DM Sans’, sans-serif; white-space: nowrap; background: #f0c96e; }
+
+/* USAGE BAR */
+.usage-bar-wrap {
+background: var(–white);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+padding: 16px 20px;
+margin-bottom: 24px;
+display: none;
+align-items: center;
+gap: 16px;
+}
+.usage-bar-wrap.visible { display: flex; }
+.usage-label { font-size: 0.82rem; color: var(–ink-muted); white-space: nowrap; }
+.usage-label strong { color: var(–ink); }
+.usage-track { flex: 1; height: 6px; background: var(–border); border-radius: 10px; overflow: hidden; }
+.usage-fill { height: 100%; background: var(–accent); border-radius: 10px; transition: width 0.4s ease; }
+.usage-fill.warning { background: #f59e0b; }
+.usage-fill.danger { background: #ef4444; }
+.upgrade-link { font-size: 0.78rem; font-weight: 600; color: var(–accent); cursor: pointer; white-space: nowrap; text-decoration: none; }
+
+/* HERO */
+.hero { background: var(–white); border-bottom: 1px solid var(–border); padding: 56px 24px 52px; text-align: center; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 6px; background: var(–accent-light); color: var(–accent); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 14px; border-radius: 20px; margin-bottom: 20px; }
+.hero h1 { font-family: ‘DM Serif Display’, serif; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; letter-spacing: -0.02em; color: var(–ink); max-width: 600px; margin: 0 auto 16px; }
+.hero h1 em { font-style: italic; color: var(–accent); }
+.hero p { color: var(–ink-muted); font-size: 1.05rem; max-width: 480px; margin: 0 auto; font-weight: 300; }
+.stats { display: flex; justify-content: center; gap: 40px; margin-top: 36px; flex-wrap: wrap; }
+.stat-number { font-family: ‘DM Serif Display’, serif; font-size: 1.6rem; line-height: 1; }
+.stat-label { font-size: 0.78rem; color: var(–ink-light); margin-top: 4px; font-weight: 500; }
+
+/* MAIN */
+.main { max-width: 860px; margin: 0 auto; padding: 48px 24px 80px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 680px) { .main { grid-template-columns: 1fr; } }
+
+/* CARDS */
+.card { background: var(–white); border: 1px solid var(–border); border-radius: var(–radius); padding: 28px; box-shadow: var(–shadow-sm); }
+.card-title { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(–ink-muted); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.card-title::before { content: ‘’; display: block; width: 3px; height: 12px; background: var(–accent); border-radius: 2px; }
+
+/* FORM */
+label { display: block; font-size: 0.82rem; font-weight: 500; color: var(–ink-muted); margin-bottom: 6px; }
+select, textarea { width: 100%; background: var(–bg); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 10px 14px; color: var(–ink); font-family: ‘DM Sans’, sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; appearance: none; }
+select { background-image: url(“data:image/svg+xml,%3Csvg xmlns=‘http://www.w3.org/2000/svg’ width=‘12’ height=‘8’ viewBox=‘0 0 12 8’%3E%3Cpath d=‘M1 1l5 5 5-5’ stroke=’%236b6860’ stroke-width=‘1.5’ fill=‘none’ stroke-linecap=‘round’/%3E%3C/svg%3E”); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; cursor: pointer; }
+textarea { resize: vertical; min-height: 130px; line-height: 1.6; }
+select:focus, textarea:focus { border-color: var(–accent); box-shadow: 0 0 0 3px rgba(31,111,235,0.1); background: var(–white); }
+textarea::placeholder { color: var(–ink-light); }
+.form-group { margin-bottom: 18px; }
+
+/* TONE CHIPS */
+.tone-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+.tone-chip { background: var(–bg); border: 1px solid var(–border); border-radius: 20px; padding: 5px 13px; font-size: 0.8rem; color: var(–ink-muted); cursor: pointer; transition: all 0.15s; font-family: ‘DM Sans’, sans-serif; font-weight: 500; }
+.tone-chip:hover { border-color: var(–accent); color: var(–accent); background: var(–accent-light); }
+.tone-chip.active { background: var(–accent); border-color: var(–accent); color: white; }
+
+/* API KEY */
+.api-notice { background: #fffbeb; border: 1px solid #f0d060; border-radius: var(–radius-sm); padding: 12px 16px; font-size: 0.82rem; color: #92600a; margin-top: 14px; display: flex; gap: 8px; align-items: flex-start; line-height: 1.5; }
+.api-notice a { color: var(–accent); text-decoration: none; font-weight: 500; }
+.api-key-row { display: flex; gap: 8px; margin-top: 8px; }
+.api-key-row input { flex: 1; background: var(–bg); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 8px 12px; font-family: monospace; font-size: 0.8rem; color: var(–ink); outline: none; transition: border-color 0.2s; }
+.api-key-row input:focus { border-color: var(–accent); box-shadow: 0 0 0 3px rgba(31,111,235,0.1); }
+.api-key-row input::placeholder { color: var(–ink-light); }
+.save-key-btn { background: var(–ink); color: white; border: none; border-radius: var(–radius-sm); padding: 8px 16px; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: ‘DM Sans’, sans-serif; transition: background 0.15s; white-space: nowrap; }
+.save-key-btn:hover { background: #333; }
+
+/* GENERATE BTN */
+.generate-btn { width: 100%; background: var(–accent); color: white; border: none; border-radius: var(–radius-sm); padding: 13px 24px; font-family: ‘DM Sans’, sans-serif; font-size: 0.92rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.generate-btn:hover:not(:disabled) { background: var(–accent-hover); box-shadow: 0 4px 12px rgba(31,111,235,0.3); transform: translateY(-1px); }
+.generate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-msg { background: #fff5f5; border: 1px solid #fca5a5; border-radius: var(–radius-sm); padding: 12px 16px; font-size: 0.85rem; color: #dc2626; margin-top: 12px; display: none; }
+
+/* RESULTS */
+.results-panel { grid-column: 1 / -1; display: none; }
+.results-panel.visible { display: block; }
+.reply-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.reply-card { background: var(–white); border: 1px solid var(–border); border-radius: var(–radius); padding: 22px; box-shadow: var(–shadow-sm); display: flex; flex-direction: column; gap: 14px; animation: fadeUp 0.4s ease both; }
+.reply-card:nth-child(2) { animation-delay: 0.08s; }
+.reply-card:nth-child(3) { animation-delay: 0.16s; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.reply-tag { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(–accent); background: var(–accent-light); padding: 3px 10px; border-radius: 20px; display: inline-block; }
+.reply-tag.tag-2 { color: #7c3aed; background: #f5f0ff; }
+.reply-tag.tag-3 { color: #b45309; background: #fffbeb; }
+.reply-text { font-size: 0.92rem; line-height: 1.7; color: var(–ink); flex: 1; }
+.copy-btn { align-self: flex-start; background: var(–bg); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 7px 16px; font-size: 0.78rem; font-weight: 600; color: var(–ink-muted); cursor: pointer; transition: all 0.15s; font-family: ‘DM Sans’, sans-serif; display: flex; align-items: center; gap: 6px; }
+.copy-btn:hover { background: var(–success-bg); border-color: var(–success); color: var(–success); }
+.copy-btn.copied { background: var(–success-bg); border-color: var(–success); color: var(–success); }
+
+/* TIPS */
+.tips-card { background: var(–accent-light); border: 1px solid rgba(31,111,235,0.15); }
+.tip-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid rgba(31,111,235,0.1); font-size: 0.85rem; color: #2d4a7a; }
+.tip-item:last-child { border-bottom: none; padding-bottom: 0; }
+.tip-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+/* LOGIN PROMPT */
+.login-prompt { grid-column: 1 / -1; background: var(–white); border: 1px solid var(–border); border-radius: var(–radius); padding: 40px; text-align: center; box-shadow: var(–shadow-sm); }
+.login-prompt h2 { font-family: ‘DM Serif Display’, serif; font-size: 1.5rem; margin-bottom: 8px; }
+.login-prompt p { color: var(–ink-muted); font-size: 0.92rem; max-width: 380px; margin: 0 auto 24px; }
+.login-prompt-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn-primary { background: var(–accent); color: white; border: none; border-radius: var(–radius-sm); padding: 11px 28px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: ‘DM Sans’, sans-serif; transition: all 0.2s; }
+.btn-primary:hover { background: var(–accent-hover); }
+.btn-secondary { background: none; color: var(–ink); border: 1px solid var(–border); border-radius: var(–radius-sm); padding: 11px 28px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: ‘DM Sans’, sans-serif; transition: all 0.2s; }
+.btn-secondary:hover { border-color: var(–ink); }
+</style>
+
+</head>
+<body>
+
+<!-- AUTH MODAL -->
+
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <div class="modal-title">Welcome to ReviewReply</div>
+    <div class="modal-sub">Get 10 free AI-generated replies. No credit card required.</div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchTab('signup')">Create Account</button>
+      <button class="modal-tab" onclick="switchTab('login')">Sign In</button>
+    </div>
+    <input class="modal-input" id="authEmail" type="email" placeholder="your@email.com" />
+    <input class="modal-input" id="authPassword" type="password" placeholder="Password (min 6 characters)" />
+    <button class="modal-submit" id="authSubmit" onclick="handleAuth()">Create Free Account</button>
+    <div class="modal-error" id="authError"></div>
+    <div class="modal-success" id="authSuccess"></div>
+  </div>
+</div>
+
+<!-- NAV -->
+
+<nav>
+  <div class="logo">Review<span>Reply</span></div>
+  <div class="nav-right">
+    <span class="nav-user" id="navUser" style="display:none"></span>
+    <span class="nav-badge" id="navBadge">✦ Free Beta</span>
+    <button class="nav-btn" id="navAuthBtn" onclick="showAuth()">Sign Up Free</button>
+    <button class="nav-btn" id="navLogoutBtn" style="display:none" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+
+<div class="hero">
+  <div class="hero-eyebrow">✦ AI-Powered</div>
+  <h1>Reply to reviews in <em>seconds,</em> not hours</h1>
+  <p>Paste any customer review and get 3 professional, on-brand responses instantly. Built for busy business owners.</p>
+  <div class="stats">
+    <div class="stat"><div class="stat-number">3</div><div class="stat-label">Reply Options</div></div>
+    <div class="stat"><div class="stat-number">&lt;10s</div><div class="stat-label">Generation Time</div></div>
+    <div class="stat"><div class="stat-number">100%</div><div class="stat-label">Customizable</div></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+
+<div class="main">
+
+  <!-- Usage bar (logged in) -->
+
+  <div class="usage-bar-wrap" id="usageBar" style="grid-column: 1 / -1;">
+    <div class="usage-label">Free replies: <strong id="usageCount">0</strong> / 10 used</div>
+    <div class="usage-track"><div class="usage-fill" id="usageFill" style="width:0%"></div></div>
+    <a class="upgrade-link" onclick="showUpgrade()">Upgrade →</a>
+  </div>
+
+  <!-- Upgrade banner (limit hit) -->
+
+  <div class="upgrade-banner" id="upgradeBanner" style="grid-column: 1 / -1;">
+    <div class="upgrade-text">
+      <h3>You've used all 10 free replies 🎉</h3>
+      <p>Upgrade to Pro for unlimited replies — just $19/month.</p>
+    </div>
+    <button class="upgrade-btn" onclick="showUpgrade()">Upgrade to Pro →</button>
+  </div>
+
+  <!-- Login prompt (logged out) -->
+
+  <div class="login-prompt" id="loginPrompt" style="display:none">
+    <h2>Start replying smarter</h2>
+    <p>Create a free account to get 10 AI-generated review replies. No credit card needed.</p>
+    <div class="login-prompt-btns">
+      <button class="btn-primary" onclick="showAuth('signup')">Get Started Free</button>
+      <button class="btn-secondary" onclick="showAuth('login')">Sign In</button>
+    </div>
+  </div>
+
+  <!-- Input Card -->
+
+  <div class="card" id="inputCard">
+    <div class="card-title">The Review</div>
+    <div class="form-group">
+      <label>Business Type</label>
+      <select id="businessType">
+        <option value="restaurant">🍽️ Restaurant / Café</option>
+        <option value="salon">✂️ Salon / Spa</option>
+        <option value="retail">🛍️ Retail Shop</option>
+        <option value="medical">🏥 Medical / Dental</option>
+        <option value="hotel">🏨 Hotel / Hospitality</option>
+        <option value="fitness">💪 Gym / Fitness</option>
+        <option value="auto">🚗 Auto Service</option>
+        <option value="other">🏢 Other Business</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Paste the Customer Review</label>
+      <textarea id="reviewText" placeholder="e.g. The food was great but the wait time was too long. Our server was friendly though. Will give it another shot…"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Response Tone</label>
+      <div class="tone-chips">
+        <button class="tone-chip active" data-tone="professional">Professional</button>
+        <button class="tone-chip" data-tone="warm">Warm & Friendly</button>
+        <button class="tone-chip" data-tone="concise">Brief & Direct</button>
+        <button class="tone-chip" data-tone="apologetic">Apologetic</button>
+      </div>
+    </div>
+    <div class="api-notice">
+      <span>🔑</span>
+      <div>Your Anthropic API key — <a href="https://console.anthropic.com" target="_blank">get one free →</a>
+        <div class="api-key-row">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." />
+          <button class="save-key-btn" onclick="saveKey()">Save</button>
+        </div>
+      </div>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="generate-btn" id="generateBtn" onclick="generateReplies()">
+      <span id="btnText">✦ Generate 3 Replies</span>
+    </button>
+  </div>
+
+  <!-- Tips Card -->
+
+  <div class="card tips-card" id="tipsCard">
+    <div class="card-title">How It Works</div>
+    <div class="tip-item"><span class="tip-icon">1️⃣</span><div><strong>Paste any review</strong> — Google, Yelp, TripAdvisor, Facebook.</div></div>
+    <div class="tip-item"><span class="tip-icon">2️⃣</span><div><strong>Choose your tone</strong> — Professional, warm, brief, or apologetic.</div></div>
+    <div class="tip-item"><span class="tip-icon">3️⃣</span><div><strong>Get 3 options</strong> — Pick the one that fits best.</div></div>
+    <div class="tip-item"><span class="tip-icon">4️⃣</span><div><strong>Copy & post</strong> — One click to copy directly.</div></div>
+    <div class="tip-item"><span class="tip-icon">💡</span><div><strong>Pro tip:</strong> Add the reviewer's name before posting.</div></div>
+  </div>
+
+  <!-- Results Panel -->
+
+  <div class="results-panel" id="resultsPanel">
+    <div class="card">
+      <div class="card-title">Your 3 Reply Options</div>
+      <div class="reply-cards" id="replyCards"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // --- SUPABASE INIT ---
+  const { createClient } = supabase;
+  const sb = createClient(
+    'https://fkhyrdrabcpsvgssmnwg.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraHlyZHJhYmNwc3Znc3NtbndnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MjAyMTYsImV4cCI6MjA5MDE5NjIxNn0.wvpAJ28AqUwy5T5XFuUXlv0mW5EU-v8sl1G7GTm79dg'
+  );
+
+  const FREE_LIMIT = 10;
+  let currentUser = null;
+  let userProfile = null;
+  let selectedTone = 'professional';
+  let authMode = 'signup';
+  let apiKey = localStorage.getItem('rr_api_key') || '';
+
+  if (apiKey) document.getElementById('apiKeyInput').value = apiKey;
+
+  // --- AUTH STATE ---
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) {
+      currentUser = session.user;
+      await loadProfile();
+      showAppState('loggedin');
+    } else {
+      currentUser = null;
+      userProfile = null;
+      showAppState('loggedout');
+    }
+  });
+
+  async function loadProfile() {
+    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    if (error || !data) {
+      // Create profile if doesn't exist
+      await sb.from('profiles').insert({ id: currentUser.id, email: currentUser.email, reply_count: 0, plan: 'free' });
+      userProfile = { reply_count: 0, plan: 'free' };
+    } else {
+      userProfile = data;
+    }
+    updateUsageUI();
+  }
+
+  function updateUsageUI() {
+    if (!userProfile) return;
+    const count = userProfile.reply_count || 0;
+    const pct = Math.min((count / FREE_LIMIT) * 100, 100);
+
+    document.getElementById('usageCount').textContent = count;
+    const fill = document.getElementById('usageFill');
+    fill.style.width = pct + '%';
+    fill.className = 'usage-fill' + (pct >= 90 ? ' danger' : pct >= 70 ? ' warning' : '');
+
+    document.getElementById('usageBar').classList.add('visible');
+
+    if (count >= FREE_LIMIT && userProfile.plan === 'free') {
+      document.getElementById('upgradeBanner').classList.add('visible');
+      document.getElementById('generateBtn').disabled = true;
+      document.getElementById('btnText').textContent = 'Upgrade to Generate More';
+    }
+  }
+
+  function showAppState(state) {
+    const loggedIn = state === 'loggedin';
+    document.getElementById('loginPrompt').style.display = loggedIn ? 'none' : 'block';
+    document.getElementById('inputCard').style.display = loggedIn ? 'block' : 'none';
+    document.getElementById('tipsCard').style.display = loggedIn ? 'block' : 'none';
+    document.getElementById('navAuthBtn').style.display = loggedIn ? 'none' : 'block';
+    document.getElementById('navLogoutBtn').style.display = loggedIn ? 'block' : 'none';
+    document.getElementById('navUser').style.display = loggedIn ? 'block' : 'none';
+    if (loggedIn) document.getElementById('navUser').textContent = currentUser.email;
+    if (!loggedIn) {
+      document.getElementById('usageBar').classList.remove('visible');
+      document.getElementById('upgradeBanner').classList.remove('visible');
+    }
+  }
+
+  // --- AUTH MODAL ---
+  function showAuth(mode = 'signup') {
+    authMode = mode || authMode;
+    switchTab(authMode);
+    document.getElementById('authModal').classList.add('visible');
+    setTimeout(() => document.getElementById('authEmail').focus(), 200);
+  }
+
+  function switchTab(mode) {
+    authMode = mode;
+    document.querySelectorAll('.modal-tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && mode === 'signup') || (i === 1 && mode === 'login'));
+    });
+    document.getElementById('authSubmit').textContent = mode === 'signup' ? 'Create Free Account' : 'Sign In';
+    document.getElementById('authError').style.display = 'none';
+    document.getElementById('authSuccess').style.display = 'none';
+  }
+
+  async function handleAuth() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+    const errEl = document.getElementById('authError');
+    const sucEl = document.getElementById('authSuccess');
+    const btn = document.getElementById('authSubmit');
+
+    errEl.style.display = 'none';
+    sucEl.style.display = 'none';
+
+    if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; errEl.style.display = 'block'; return; }
+
+    btn.disabled = true;
+    btn.textContent = authMode === 'signup' ? 'Creating account…' : 'Signing in…';
+
+    if (authMode === 'signup') {
+      const { error } = await sb.auth.signUp({ email, password });
+      if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; }
+      else { sucEl.textContent = 'Account created! Check your email to confirm, then sign in.'; sucEl.style.display = 'block'; switchTab('login'); }
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; }
+      else { document.getElementById('authModal').classList.remove('visible'); }
+    }
+
+    btn.disabled = false;
+    btn.textContent = authMode === 'signup' ? 'Create Free Account' : 'Sign In';
+  }
+
+  async function logout() {
+    await sb.auth.signOut();
+    document.getElementById('resultsPanel').classList.remove('visible');
+  }
+
+  function showUpgrade() {
+    alert('Stripe payments coming in Stage 3! 🚀\n\nYou\'ll charge $19/month here.');
+  }
+
+  // --- TONE CHIPS ---
+  document.querySelectorAll('.tone-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.tone-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      selectedTone = chip.dataset.tone;
+    });
+  });
+
+  function saveKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (key) {
+      apiKey = key;
+      localStorage.setItem('rr_api_key', key);
+      const btn = document.querySelector('.save-key-btn');
+      btn.textContent = '✓ Saved';
+      btn.style.background = '#1a7f4b';
+      setTimeout(() => { btn.textContent = 'Save'; btn.style.background = ''; }, 2000);
+    }
+  }
+
+  function showError(msg) { const el = document.getElementById('errorMsg'); el.textContent = msg; el.style.display = 'block'; }
+  function hideError() { document.getElementById('errorMsg').style.display = 'none'; }
+
+  // --- GENERATE ---
+  async function generateReplies() {
+    if (!currentUser) { showAuth('signup'); return; }
+
+    const count = userProfile?.reply_count || 0;
+    if (count >= FREE_LIMIT && userProfile?.plan === 'free') { showUpgrade(); return; }
+
+    const review = document.getElementById('reviewText').value.trim();
+    const businessType = document.getElementById('businessType').value;
+    const key = document.getElementById('apiKeyInput').value.trim() || apiKey;
+
+    hideError();
+    if (!review) { showError('Please paste a customer review first.'); return; }
+    if (!key) { showError('Please enter your Anthropic API key above.'); return; }
+
+    apiKey = key;
+    localStorage.setItem('rr_api_key', key);
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    document.getElementById('btnText').innerHTML = '<div class="spinner"></div> Generating…';
+
+    const toneMap = {
+      professional: 'professional and polished',
+      warm: 'warm, friendly and personable',
+      concise: 'brief, clear and direct (2-3 sentences max)',
+      apologetic: 'empathetic and apologetic where needed'
+    };
+
+    const prompt = `You are a review response expert for a ${businessType} business.
+
+A customer left this review:
+"${review}"
+
+Write exactly 3 different reply options. Each should be ${toneMap[selectedTone]}.
+
+Rules:
+- Each reply must feel unique and distinct
+- Acknowledge specific points from the review
+- Never be defensive or make excuses
+- Keep each reply under 100 words
+- Do NOT number them or add labels
+- Separate each reply with the exact separator: ---REPLY---
+
+Output format:
+[Reply 1 text]
+---REPLY---
+[Reply 2 text]
+---REPLY---
+[Reply 3 text]`;
+
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || 'API request failed');
+      }
+
+      const data = await response.json();
+      const text = data.content[0].text;
+      const replies = text.split('---REPLY---').map(r => r.trim()).filter(Boolean);
+
+      // Increment usage in Supabase
+      const newCount = (userProfile.reply_count || 0) + 1;
+      await sb.from('profiles').update({ reply_count: newCount }).eq('id', currentUser.id);
+      userProfile.reply_count = newCount;
+      updateUsageUI();
+
+      renderReplies(replies);
+
+    } catch (err) {
+      showError('Error: ' + (err.message || 'Something went wrong. Check your API key.'));
+    } finally {
+      if (userProfile?.reply_count < FREE_LIMIT || userProfile?.plan !== 'free') {
+        btn.disabled = false;
+        document.getElementById('btnText').innerHTML = '✦ Generate 3 Replies';
+      }
+    }
+  }
+
+  function renderReplies(replies) {
+    const panel = document.getElementById('resultsPanel');
+    const container = document.getElementById('replyCards');
+    const labels = ['Option A', 'Option B', 'Option C'];
+    const tagClasses = ['', 'tag-2', 'tag-3'];
+    container.innerHTML = replies.map((reply, i) => `
+      <div class="reply-card">
+        <span class="reply-tag ${tagClasses[i]}">${labels[i] || 'Option ' + (i+1)}</span>
+        <div class="reply-text">${reply}</div>
+        <button class="copy-btn" onclick="copyReply(this, ${JSON.stringify(reply)})"><span>📋</span> Copy Reply</button>
+      </div>
+    `).join('');
+    panel.classList.add('visible');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function copyReply(btn, text) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.innerHTML = '<span>✓</span> Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.innerHTML = '<span>📋</span> Copy Reply'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  document.getElementById('reviewText')?.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generateReplies();
+  });
+
+  // Close modal on overlay click
+  document.getElementById('authModal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('visible');
+  });
+
+  // Enter key in auth
+  document.getElementById('authPassword').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleAuth();
+  });
+</script>
+
+</body>
+</html>
