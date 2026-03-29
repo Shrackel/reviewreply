@@ -538,23 +538,29 @@ textarea::placeholder { color: var(–ink-light); }
   async function generateReplies() {
     if (!currentUser) { showAuth('signup'); return; }
 
+    // Reload profile if missing
+    if (!userProfile) { await loadProfile(); }
+
     const count = userProfile?.reply_count || 0;
     if (count >= FREE_LIMIT && userProfile?.plan === 'free') { showUpgrade(); return; }
 
     const review = document.getElementById('reviewText').value.trim();
     const businessType = document.getElementById('businessType').value;
+    // Always read key fresh from input field
     const key = document.getElementById('apiKeyInput').value.trim() || apiKey;
 
     hideError();
     if (!review) { showError('Please paste a customer review first.'); return; }
-    if (!key) { showError('Please enter your Anthropic API key above.'); return; }
+    if (!key) { showError('Please enter your Anthropic API key and tap Save first.'); return; }
 
+    // Save key
     apiKey = key;
-    localStorage.setItem('rr_api_key', key);
+    try { localStorage.setItem('rr_api_key', key); } catch(e) {}
 
     const btn = document.getElementById('generateBtn');
+    const btnTextEl = document.getElementById('btnText');
     btn.disabled = true;
-    document.getElementById('btnText').innerHTML = '<div class="spinner"></div> Generating…';
+    btnTextEl.innerHTML = '<div class="spinner"></div> Generating…';
 
     const toneMap = {
       professional: 'professional and polished',
@@ -585,9 +591,14 @@ Output format:
 ---REPLY---
 [Reply 3 text]`;
 
+    // Add 30 second timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': key,
@@ -595,15 +606,17 @@ Output format:
           'anthropic-dangerous-direct-browser-access': 'true'
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 1000,
           messages: [{ role: 'user', content: prompt }]
         })
       });
 
+      clearTimeout(timeout);
+
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || 'API request failed');
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || 'API error ' + response.status);
       }
 
       const data = await response.json();
@@ -619,13 +632,15 @@ Output format:
       renderReplies(replies);
 
     } catch (err) {
-      showError('Error: ' + (err.message || 'Something went wrong. Check your API key.'));
-    } finally {
-      const count = userProfile?.reply_count || 0;
-      if (count < FREE_LIMIT || userProfile?.plan !== 'free') {
-        btn.disabled = false;
-        document.getElementById('btnText').innerHTML = '✦ Generate 3 Replies';
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') {
+        showError('Request timed out. Please try again.');
+      } else {
+        showError('Error: ' + (err.message || 'Something went wrong. Check your API key.'));
       }
+    } finally {
+      btn.disabled = false;
+      btnTextEl.innerHTML = '✦ Generate 3 Replies';
     }
   }
 
